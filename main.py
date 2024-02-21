@@ -1,11 +1,12 @@
-from fastapi import FastAPI, HTTPException
-from typing import List
+from fastapi import FastAPI
+from typing import Optional
 
 app = FastAPI()
 
-# Dictionary
-students_db = {}
+#dictionary
+students = {}
 
+#defining the student class
 class Student:
     def __init__(self, id: int, name: str, age: int, sex: str, height: float):
         self.id = id
@@ -14,42 +15,40 @@ class Student:
         self.sex = sex
         self.height = height
 
-@app.post("/students/", response_model=Student)
-def create_student(id: int, name: str, age: int, sex: str, height: float):
-    if id in students_db:
-        raise HTTPException(status_code=400, detail="Student with this ID already exists")
+#creating a student resource
+@app.post("/students/")
+async def create_student(student: dict):
+    new_student = Student(**student)
+    if new_student.id in students:
+        return {"error": "Student already exists"}
+    students[new_student.id] = new_student.__dict__
+    return new_student.__dict__
 
-    student = Student(id=id, name=name, age=age, sex=sex, height=height)
-    students_db[id] = student
-    return student
+#retrieving a student resource
+@app.get("/students/{student_id}")
+async def read_student(student_id: int):
+    if student_id not in students:
+        return {"error": "Student not found"}
+    return students[student_id]
 
-@app.get("/students/{student_id}", response_model=Student)
-def read_student(student_id: int):
-    student = students_db.get(student_id)
-    if student is None:
-        raise HTTPException(status_code=404, detail="Student not found")
-    return student.__dict__
+#retrieving many students
+@app.get("/students/")
+async def read_students():
+    return list(students.values())
 
-@app.get("/students/", response_model=List[Student])
-def read_students():
-    return [student.__dict__ for student in students_db.values()]
+#updating a student resource
+@app.put("/students/{student_id}")
+async def update_student(student_id: int, student: dict):
+    new_student = Student(**student)
+    if student_id not in students:
+        return {"error": "Student not found"}
+    students[student_id] = new_student.__dict__
+    return students[student_id]
 
-@app.put("/students/{student_id}", response_model=Student)
-def update_student(student_id: int, name: str, age: int, sex: str, height: float):
-    student = students_db.get(student_id)
-    if student is None:
-        raise HTTPException(status_code=404, detail="Student not found")
-
-    student.name = name
-    student.age = age
-    student.sex = sex
-    student.height = height
-
-    return student.__dict__
-
-@app.delete("/students/{student_id}", response_model=Student)
-def delete_student(student_id: int):
-    student = students_db.pop(student_id, None)
-    if student is None:
-        raise HTTPException(status_code=404, detail="Student not found")
-    return student.__dict__
+#deleting a student resource
+@app.delete("/students/{student_id}")
+async def delete_student(student_id: int):
+    if student_id not in students:
+        return {"error": "Student not found"}
+    del students[student_id]
+    return {"message": "Student deleted"}
